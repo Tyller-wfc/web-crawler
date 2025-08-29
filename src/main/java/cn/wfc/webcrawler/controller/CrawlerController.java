@@ -1,6 +1,8 @@
 package cn.wfc.webcrawler.controller;
 
+import cn.wfc.webcrawler.util.SeleniumUtils;
 import io.github.bonigarcia.wdm.WebDriverManager;
+import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -16,7 +18,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
+@Slf4j
 public class CrawlerController {
+    public static void main(String[] args) {
+        CrawlerController crawlerController = new CrawlerController();
+        crawlerController.crawler("http://www.cqgjj.cn").forEach(s -> System.out.println(s));
+    }
+
     @GetMapping("/crawler")
     public Set<String> crawler(String url) {
         String BASE_URL = url;
@@ -24,21 +32,32 @@ public class CrawlerController {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless"); // 先不要 headless，调试时可见
+        options.addArguments("--headless");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--remote-allow-origins=*");
 
         WebDriver driver = new ChromeDriver(options);
         Set<String> secondLevel = new HashSet<>();
 
         try {
+            long start = System.currentTimeMillis();
             driver.get(BASE_URL);
-            Thread.sleep(5000);
+//            Thread.sleep(5000);
+            // 1. 仅等待页面加载完成
+//            SeleniumUtils.waitForPageLoad(driver, 20);
 
+            // 2. 等待某个元素出现（假设 id="main"）
+//            SeleniumUtils.waitForElementVisible(driver, By.tagName("a"), 10);
+
+            // 3. 组合等待（推荐）
+            SeleniumUtils.waitForPageAndElement(driver, By.tagName("a"), 10);
+            long end = System.currentTimeMillis();
+            log.info("加载页面用了：{}毫秒", end - start);
             List<WebElement> links = driver.findElements(By.tagName("a"));
 
             for (WebElement link : links) {
                 String href = link.getAttribute("href");
-//                System.out.println("发现链接：" + href);
 
                 if (href != null) {
                     if (href.startsWith("#/")) {
@@ -69,7 +88,7 @@ public class CrawlerController {
             secondLevel = secondLevel.stream()
                     .filter(u -> u.startsWith("http"))
                     .collect(Collectors.toSet());
-            System.out.println("二级链接：");
+//            System.out.println("二级链接：");
             if (secondLevel.isEmpty()) {
                 System.out.println("⚠ 没有获取到任何二级链接，请确认页面是否在 JS 渲染后才生成。");
             } else {
